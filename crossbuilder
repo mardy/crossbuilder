@@ -71,6 +71,7 @@ display_help () {
     echo "  --packages       - Packages to deploy [by default: all the ones already installed on device]."
     echo "  --architecture   - Architecture to build for [defaults to architecture of connected device, if none then armhf]."
     echo "  --ubuntu         - Version of Ubuntu to build for [defaults to version of connected device, if none then 16.04]."
+    echo "  --raspbian       - Version of Raspbian to build for [defaults to \`buster\`]."
     echo "  --lxd-image      - LXD image to use [defaults to the ones provided by the Ubuntu SDK (example: ubuntu-sdk-16.04-amd64-armhf-dev)."
     echo "  --privileged     - Use a privileged container (disabled by default)."
     echo "  --ephemeral      - Build using a short-lived container (disabled by default)."
@@ -301,6 +302,15 @@ fixup_sources_vivid () {
     exec_container_root "add-apt-repository 'deb http://repo.ubports.com vivid main' >> /etc/apt/sources.list"
 }
 
+fixup_sources_raspbian () {
+    exec_container_root "dpkg --add-architecture $TARGET_ARCH"
+    exec_container_root apt update
+    exec_container_root apt install -y --no-install-recommends \
+        gnupg2
+    exec_container_root "printf '\ndeb-src http://archive.raspbian.org/raspbian $TARGET_DISTRO_RELEASE main contrib non-free' >> /etc/apt/sources.list"
+    wget -qO - "https://archive.raspbian.org/raspbian.public.key" | exec_container_root apt-key add -
+}
+
 create_container () {
     lxc remote --protocol=simplestreams --public=true --accept-certificate=true add ubports-sdk https://sdk-images.ubports.com || true
     lxc init $LXD_IMAGE $LXD_CONTAINER $EPHEMERAL_FLAG
@@ -326,6 +336,8 @@ create_container () {
             fixup_sources_vivid
         fi
         wget -qO - "http://repo.ubports.com/keyring.gpg" | exec_container_root apt-key add -
+    elif [ "${TARGET_DISTRO}" = "raspbian" ]; then
+        fixup_sources_raspbian
     fi
     exec_container_root apt update
     exec_container_root apt install -y \
@@ -811,6 +823,12 @@ while [ "$1" != "" ]; do
             ;;
             --ubuntu)
                 TARGET_DISTRO_RELEASE=$VALUE
+            ;;
+            --raspbian)
+                TARGET_DISTRO=raspbian
+                TARGET_DISTRO_RELEASE=${VALUE:-buster}
+                TARGET_ARCH=armel
+                LXD_IMAGE=images:debian/$TARGET_DISTRO_RELEASE/$HOST_ARCH
             ;;
             --lxd-image)
                 LXD_IMAGE=$VALUE
