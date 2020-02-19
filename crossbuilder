@@ -108,8 +108,9 @@ variables () {
     fi
     DEBS_TARBALL="$DEBS_TARBALL_ROOT"_"$NEW_PACKAGE_VERSION.tar"
 
-    LXD_IMAGE_NO_DOT=$(echo $LXD_IMAGE | sed "s/\./-/")
-    LXD_IMAGE_NO_PREFIX=$(echo $LXD_IMAGE_NO_DOT | sed "s/.*\://")
+    # Remove dots and slashes
+    LXD_IMAGE_NO_INVALID_CHARS=$(echo $LXD_IMAGE | sed "s/[./]/-/g")
+    LXD_IMAGE_NO_PREFIX=$(echo $LXD_IMAGE_NO_INVALID_CHARS | sed "s/.*\://")
     LXD_IMAGE_NO_SDK=$(echo $LXD_IMAGE_NO_PREFIX | sed "s/ubuntu-sdk/usdk/")
     LXD_CONTAINER_COMPAT=builder-$PACKAGE-$LXD_IMAGE_NO_PREFIX
     LXD_CONTAINER=$PACKAGE-$LXD_IMAGE_NO_SDK
