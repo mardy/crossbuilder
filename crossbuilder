@@ -320,10 +320,12 @@ create_container () {
     exec_container_root "sed -i 's/ENV_PATH.*PATH=/ENV_PATH\tPATH=\/usr\/lib\/ccache:/' /etc/login.defs"
     # wait for the container's network connection
     check_for_container_network
-    if [ "${TARGET_DISTRO_RELEASE}" = "15.04" ]; then
-        fixup_sources_vivid
+    if [ "${TARGET_DISTRO}" = "ubports" ]; then
+        if [ "${TARGET_DISTRO_RELEASE}" = "15.04" ]; then
+            fixup_sources_vivid
+        fi
+        wget -qO - "http://repo.ubports.com/keyring.gpg" | exec_container_root apt-key add -
     fi
-    wget -qO - "http://repo.ubports.com/keyring.gpg" | exec_container_root apt-key add -
     exec_container_root apt update
     exec_container_root apt install -y \
         sudo debhelper ccache software-properties-common devscripts equivs \
