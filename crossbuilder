@@ -312,7 +312,7 @@ create_container () {
     exec_container_root "sed -i 's/ENV_PATH.*PATH=/ENV_PATH\tPATH=\/usr\/lib\/ccache:/' /etc/login.defs"
     # wait for the container's network connection
     check_for_container_network
-    if [ "${TARGET_UBUNTU}" = "15.04" ]; then
+    if [ "${TARGET_DISTRO_RELEASE}" = "15.04" ]; then
         # Fixup the SDK images; we should really try to get new SDK images for ubports
         exec_container_root "sed -i 's/archive.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list"
         exec_container_root "sed -i 's/ports.ubuntu.com\/ubuntu-ports/old-releases.ubuntu.com\/ubuntu/g' /etc/apt/sources.list"
@@ -390,7 +390,7 @@ enable_overlay_source () {
 }
 
 get_source_package () {
-    echo "${POSITIVE_COLOR}Downloading source package $PACKAGE for Ubuntu $TARGET_UBUNTU.${NC}"
+    echo "${POSITIVE_COLOR}Downloading source package $PACKAGE for $TARGET_DISTRO $TARGET_DISTRO_RELEASE.${NC}"
 
     # cleanup source repository potentially setup by install_dependencies before
     exec_container rm -f $USERDIR/dependencies_installed
@@ -770,7 +770,8 @@ ensure_lxd_subuid
 
 HOST_ARCH=`dpkg --print-architecture`
 TARGET_ARCH=armhf
-TARGET_UBUNTU=16.04
+TARGET_DISTRO=ubports
+TARGET_DISTRO_RELEASE=16.04
 
 PARALLEL_BUILD=$((`nproc` + 1))
 
@@ -783,7 +784,7 @@ if [ "$DEVICE_STATE" = "device" ] ; then
     DEVICE_ARCH=$(adb shell "dpkg --print-architecture" 2>&1| tr -d '\r')
     if echo "$DEVICE_ARCH" | grep -vq "not found"; then
         TARGET_ARCH=$DEVICE_ARCH
-        TARGET_UBUNTU=$(adb shell "lsb_release --release --short" | tr -d '\r')
+        TARGET_DISTRO_RELEASE=$(adb shell "lsb_release --release --short" | tr -d '\r')
         DEPLOY=true
     fi
 fi;
@@ -801,7 +802,7 @@ while [ "$1" != "" ]; do
                 TARGET_ARCH=$VALUE
             ;;
             --ubuntu)
-                TARGET_UBUNTU=$VALUE
+                TARGET_DISTRO_RELEASE=$VALUE
             ;;
             --lxd-image)
                 LXD_IMAGE=$VALUE
@@ -845,7 +846,7 @@ while [ "$1" != "" ]; do
 done
 
 if [ -z "$LXD_IMAGE" ] ; then
-    LXD_IMAGE=ubports-sdk:ubuntu-sdk-$TARGET_UBUNTU-$HOST_ARCH-$TARGET_ARCH-dev
+    LXD_IMAGE=ubports-sdk:ubuntu-sdk-$TARGET_DISTRO_RELEASE-$HOST_ARCH-$TARGET_ARCH-dev
 fi
 
 COMMAND=$1
