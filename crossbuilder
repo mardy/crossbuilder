@@ -336,13 +336,14 @@ create_container () {
             fixup_sources_vivid
         fi
         wget -qO - "http://repo.ubports.com/keyring.gpg" | exec_container_root apt-key add -
+        DISTRO_EXTRA_PACKAGES=pkg-create-dbgsym
     elif [ "${TARGET_DISTRO}" = "raspbian" ]; then
         fixup_sources_raspbian
     fi
     exec_container_root apt update
     exec_container_root apt install -y \
         sudo debhelper ccache software-properties-common devscripts equivs \
-        qemu-user-static pkg-create-dbgsym
+        qemu-user-static $DISTRO_EXTRA_PACKAGES
     exec_container_root adduser $USERNAME sudo
     # set empty password for the user
     exec_container_root passwd --delete $USERNAME
