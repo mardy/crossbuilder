@@ -292,6 +292,14 @@ start_container () {
     fi
 }
 
+fixup_sources_vivid () {
+    # Fixup the SDK images; we should really try to get new SDK images for ubports
+    exec_container_root "sed -i 's/archive.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list"
+    exec_container_root "sed -i 's/ports.ubuntu.com\/ubuntu-ports/old-releases.ubuntu.com\/ubuntu/g' /etc/apt/sources.list"
+    exec_container_root "add-apt-repository -y ppa:ubports-developers/overlay"
+    exec_container_root "add-apt-repository 'deb http://repo.ubports.com vivid main' >> /etc/apt/sources.list"
+}
+
 create_container () {
     lxc remote --protocol=simplestreams --public=true --accept-certificate=true add ubports-sdk https://sdk-images.ubports.com || true
     lxc init $LXD_IMAGE $LXD_CONTAINER $EPHEMERAL_FLAG
@@ -313,11 +321,7 @@ create_container () {
     # wait for the container's network connection
     check_for_container_network
     if [ "${TARGET_DISTRO_RELEASE}" = "15.04" ]; then
-        # Fixup the SDK images; we should really try to get new SDK images for ubports
-        exec_container_root "sed -i 's/archive.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list"
-        exec_container_root "sed -i 's/ports.ubuntu.com\/ubuntu-ports/old-releases.ubuntu.com\/ubuntu/g' /etc/apt/sources.list"
-        exec_container_root "add-apt-repository -y ppa:ubports-developers/overlay"
-        exec_container_root "add-apt-repository 'deb http://repo.ubports.com vivid main' >> /etc/apt/sources.list"
+        fixup_sources_vivid
     fi
     wget -qO - "http://repo.ubports.com/keyring.gpg" | exec_container_root apt-key add -
     exec_container_root apt update
