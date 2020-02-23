@@ -93,6 +93,14 @@ exec_container_root () {
     lxc exec $LXD_CONTAINER -- sh -c "$command"
 }
 
+exec_container_chroot () {
+    if [ -n "$CHROOTDIR" ]; then
+        exec_container_root "chroot $CHROOTDIR $@"
+    else
+        exec_container_root "$@"
+    fi
+}
+
 exec_container () {
     command="$@"
     #echo lxc exec $LXD_CONTAINER "$@"
@@ -306,9 +314,22 @@ fixup_sources_raspbian () {
     exec_container_root "dpkg --add-architecture $TARGET_ARCH"
     exec_container_root apt update
     exec_container_root apt install -y --no-install-recommends \
-        gnupg2
+        gnupg2 debootstrap qemu-user-static
     exec_container_root "printf '\ndeb-src http://archive.raspbian.org/raspbian $TARGET_DISTRO_RELEASE main contrib non-free' >> /etc/apt/sources.list"
     wget -qO - "https://archive.raspbian.org/raspbian.public.key" | exec_container_root apt-key add -
+}
+
+create_raspbian_chroot () {
+    exec_container_root "mkdir $CHROOTDIR"
+    exec_container_root "debootstrap --no-check-gpg --foreign --arch=armhf buster $CHROOTDIR http://archive.raspbian.org/raspbian"
+    exec_container_root "cp /usr/bin/qemu-arm-static $CHROOTDIR/usr/bin"
+    exec_container_chroot "/debootstrap/debootstrap --second-stage"
+    exec_container_chroot "apt update"
+    exec_container_chroot "apt install"
+    # Mount the user dir in the chroot
+    exec_container_root "mkdir -p $CHROOTDIR/$USERDIR"
+    exec_container_root "mount -o bind $USERDIR $CHROOTDIR/$USERDIR"
+
 }
 
 create_container () {
@@ -336,14 +357,15 @@ create_container () {
             fixup_sources_vivid
         fi
         wget -qO - "http://repo.ubports.com/keyring.gpg" | exec_container_root apt-key add -
-        DISTRO_EXTRA_PACKAGES=pkg-create-dbgsym
+        DISTRO_EXTRA_PACKAGES=qemu-user-static pkg-create-dbgsym
     elif [ "${TARGET_DISTRO}" = "raspbian" ]; then
         fixup_sources_raspbian
+        create_raspbian_chroot
     fi
-    exec_container_root apt update
-    exec_container_root apt install -y \
+    exec_container_chroot apt update
+    exec_container_chroot apt install -y \
         sudo debhelper ccache software-properties-common devscripts equivs \
-        qemu-user-static $DISTRO_EXTRA_PACKAGES
+        $DISTRO_EXTRA_PACKAGES
     exec_container_root adduser $USERNAME sudo
     # set empty password for the user
     exec_container_root passwd --delete $USERNAME
@@ -503,7 +525,7 @@ install_dependencies () {
         echo "${POSITIVE_COLOR}Installing $TARGET_ARCH build dependencies for $PACKAGE in container $LXD_CONTAINER.${NC}"
         cp debian/control "${TMP_DIR}/"
         workaround_multi_arch_deps ${TMP_DIR}/control
-        exec_container_root apt-get update --allow-unauthenticated
+        exec_container_chroot apt-get update --allow-unauthenticated
         # TODO: add build profiles to mk-build-deps once wishlist bug
         # https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=894732 is fixed and
         # propagated to Ubuntu version we will use in the future.
@@ -512,7 +534,7 @@ install_dependencies () {
         lxc file push ${TMP_DIR}/control $LXD_CONTAINER$USERDIR/patched_debian_control
 
         PROFILES_OPTION=$(echo "$DEB_BUILD_PROFILES" | sed "s/ /,/")
-        exec_container_root \
+        exec_container_chroot \
             "mk-build-deps \
                 -t 'apt-get -o Debug::pkgProblemResolver=yes --no-install-recommends -y' \
                 -i --host-arch $TARGET_ARCH \
@@ -828,8 +850,9 @@ while [ "$1" != "" ]; do
             --raspbian)
                 TARGET_DISTRO=raspbian
                 TARGET_DISTRO_RELEASE=${VALUE:-buster}
-                TARGET_ARCH=armel
+                TARGET_ARCH=armhf
                 LXD_IMAGE=images:debian/$TARGET_DISTRO_RELEASE/$HOST_ARCH
+                CHROOTDIR="/root/raspbian"
             ;;
             --lxd-image)
                 LXD_IMAGE=$VALUE
