@@ -310,17 +310,14 @@ fixup_sources_vivid () {
     exec_container_root "add-apt-repository 'deb http://repo.ubports.com vivid main' >> /etc/apt/sources.list"
 }
 
-fixup_sources_raspbian () {
+create_raspbian_chroot () {
+    exec_container_root "mkdir $CHROOTDIR"
     exec_container_root "dpkg --add-architecture $TARGET_ARCH"
     exec_container_root apt update
     exec_container_root apt install -y --no-install-recommends \
         gnupg2 debootstrap qemu-user-static
     exec_container_root "printf '\ndeb-src http://archive.raspbian.org/raspbian $TARGET_DISTRO_RELEASE main contrib non-free' >> /etc/apt/sources.list"
     wget -qO - "https://archive.raspbian.org/raspbian.public.key" | exec_container_root apt-key add -
-}
-
-create_raspbian_chroot () {
-    exec_container_root "mkdir $CHROOTDIR"
     exec_container_root "debootstrap --no-check-gpg --foreign --arch=armhf buster $CHROOTDIR http://archive.raspbian.org/raspbian"
     exec_container_root "cp /usr/bin/qemu-arm-static $CHROOTDIR/usr/bin"
     exec_container_chroot "/debootstrap/debootstrap --second-stage"
@@ -359,7 +356,6 @@ create_container () {
         wget -qO - "http://repo.ubports.com/keyring.gpg" | exec_container_root apt-key add -
         DISTRO_EXTRA_PACKAGES=qemu-user-static pkg-create-dbgsym
     elif [ "${TARGET_DISTRO}" = "raspbian" ]; then
-        fixup_sources_raspbian
         create_raspbian_chroot
     fi
     exec_container_chroot apt update
