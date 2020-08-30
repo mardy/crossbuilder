@@ -316,7 +316,7 @@ create_raspbian_chroot () {
     exec_container_root apt update
     exec_container_root apt install -y --no-install-recommends \
         gnupg2 debootstrap qemu-user-static
-    exec_container_root "printf '\ndeb-src http://archive.raspbian.org/raspbian $TARGET_DISTRO_RELEASE main contrib non-free' >> /etc/apt/sources.list"
+    exec_container_root "printf '\ndeb-src http://archive.raspbian.org/raspbian $TARGET_DISTRO_RELEASE main contrib non-free' >> $CHROOTDIR/etc/apt/sources.list"
     wget -qO - "https://archive.raspbian.org/raspbian.public.key" | exec_container_root apt-key add -
     exec_container_root "debootstrap --no-check-gpg --foreign --arch=armhf buster $CHROOTDIR http://archive.raspbian.org/raspbian"
     exec_container_root "cp /usr/bin/qemu-arm-static $CHROOTDIR/usr/bin"
